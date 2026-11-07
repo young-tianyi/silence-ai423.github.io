@@ -30,7 +30,7 @@
 @media(max-width:800px){.color-control{margin-left:0;border-left:0;padding:8px 0;min-width:240px}}
 .pair{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:18px}.pair .card{min-width:0}.pair .title{flex-wrap:wrap}.pair .metric{flex-wrap:wrap}@media(max-width:800px){.pair{gap:6px}.pair .title{padding:6px;gap:4px}.pair .metric{gap:4px}.pair .stat strong{font-size:14px}}</style>
 <header><div><h1 id="heading">Gemini 335L · 000003</h1><p id="sceneSubtitle">开投影 / 1280 × 720 / 多图同步缩放与平移</p></div><img src="assets/logo.svg" alt="DepthCore"></header>
-<div class="controls"><a href="report.html" class="catalog-link">评测报告</a><a href="index.html" class="catalog-link">← 场景目录</a><div class="scene-nav"><button id="previous" aria-label="上一个场景">‹</button><select id="sceneSelect" aria-label="选择场景"></select><button id="next" aria-label="下一个场景">›</button></div><div class="toggle-group"><label><input id="illumination" type="checkbox" checked>投影打光</label></div>
+<div class="controls"><a href="report.html" class="catalog-link">评测报告</a><div class="scene-nav" style="display:none"><button id="previous" aria-label="上一个场景">‹</button><select id="sceneSelect" aria-label="选择场景"></select><button id="next" aria-label="下一个场景">›</button></div><div class="toggle-group"><label><input id="illumination" type="checkbox" checked>投影打光</label></div>
 <div hidden>
 <label>NSL 边缘平滑 <select id="smoothEdges"><option value="0">关闭</option><option value="1">轻度</option><option value="4" selected>中度</option><option value="8">强</option></select></label>
 <label>空洞显示 <select id="depthDisplay"><option value="overlay">深度 + 左 IR</option><option value="depth" selected>仅深度</option></select></label>
@@ -45,6 +45,9 @@
 <div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid" id="grid"></div>
 
 <script>
+const embedded=new URLSearchParams(location.search).get('embed')==='1';
+if(embedded){
+
 const W=1280,H=720,N=W*H,$=id=>document.getElementById(id);
 const methods=['nsl','lingbot','da2','raw'];
 const labels={ir:'原始左 IR',gt:'标定 GT',nsl:'NSL',lingbot:'LingBot-Depth',da2:'DA2（公制深度）',raw:'Raw Depth（传感器原始深度）'};
@@ -57,7 +60,7 @@ view.onpointermove=e=>{if(!last){if(!locked&&data.gt){const b=view.getBoundingCl
  const next=Math.max(1,Math.min(24,target)),ratio=next/scale;
  px=x-(x-px)*ratio;py=y-(y-py)*ratio;scale=next;$('zoom').value=next;draw();
 }
-view.onwheel=e=>{e.preventDefault();zoomAt(e,scale*(e.deltaY<0?1.12:1/1.12))};
+view.onwheel=e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();zoomAt(e,scale*(e.deltaY<0?1.12:1/1.12))};
 view.ondblclick=e=>{e.preventDefault();zoomAt(e,scale<8?8:Math.min(24,scale*2))};});
 function draw(){
 if(data.gt&&$('autoScale').checked){const signature=[scale,px,py].join(',');if(signature!==lastViewport){lastViewport=signature;clearTimeout(rangeTimer);rangeTimer=setTimeout(()=>{if($('autoScale').checked)$('autoRange').onclick()},140)}}
@@ -253,4 +256,29 @@ $('depthDisplay').onchange=()=>{if(data.gt)render()};
 $('illumination').onchange=()=>{syncSceneUrl();loadScene($('illumination').checked?'on':'off')};
 $('range').onchange=()=>{$('autoScale').checked=false;if(data.gt)render()};
 selectScene(sceneId);
+new ResizeObserver(()=>parent.postMessage({type:'depth-viewer-height',height:document.body.scrollHeight},location.origin)).observe(document.body);
+}else{
+ const sceneIds=['d435i-merged/000005','d435i-merged/000003','gemini335l/000009','gemini335l/000004'];
+ document.body.replaceChildren();
+ const stack=document.createElement('main');
+ document.body.append(stack);
+ const frames=sceneIds.map((scene,index)=>{
+  const frame=document.createElement('iframe');
+  const url=new URL(location.href);
+  url.searchParams.set('embed','1');
+  url.searchParams.set('scene',scene);
+  frame.src=url.href;
+  frame.title=scene.replace('d435i-merged/','D435i · ').replace('gemini335l/','Gemini 335L · ');
+  frame.loading=index===0?'eager':'lazy';
+  frame.style.cssText='display:block;width:100%;height:1400px;border:0;border-bottom:24px solid #e6e1d9';
+  stack.append(frame);
+  return frame;
+ });
+ addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.data?.type!=='depth-viewer-height')return;
+  const frame=frames.find(item=>item.contentWindow===event.source);
+  const height=event.data.height;
+  if(frame&&Number.isFinite(height)&&height>0&&height<20000)frame.style.height=(height+24)+'px';
+ });
+}
 </script></html>
