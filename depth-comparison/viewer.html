@@ -42,7 +42,7 @@
 <div class="color-control"><div class="color-control-top"><span class="color-caption">色阶参考</span><div class="color-segments" role="group" aria-label="色阶参考"><button type="button" class="selected" data-source="nsl" aria-pressed="true">NSL 全景</button><button type="button" data-source="gt" aria-pressed="false">标定 GT</button></div></div><div id="colorLegend" class="color-scale"><span>近</span><i class="color-strip"></i><span>远</span></div></div><select id="colorSource" hidden><option value="nsl">NSL 完整深度</option><option value="gt">标定 GT</option></select><span id="status">加载中…</span>
 </div>
 <div hidden><button id="focus"></button><button id="autoRange"></button><input id="autoScale" type="checkbox" checked><select id="range"><option value="full">全帧</option><option value="object">物体</option><option value="custom">自动</option></select><input id="near" value="511"><input id="far" value="633"></div>
-<div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid" id="grid"></div>
+<div id="probe" style="display:none" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid" id="grid"></div>
 
 <script>
 const embedded=new URLSearchParams(location.search).get('embed')==='1';
