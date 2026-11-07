@@ -481,7 +481,7 @@ function syncSceneUrl() {
   url.searchParams.set('mode', $('illumination').checked ? 'on' : 'off');
   history.replaceState(null, '', url);
 }
-const scenes=["d435i-merged/000005", "d435i-merged/000003", "gemini335l/000009", "gemini335l/000004", "gemini335l/000014", "d435i-merged/000002", "gemini335l/000012"];
+const scenes=["d435i-merged/000005", "d435i-merged/000003", "gemini335l/000009", "gemini335l/000004", "gemini335l/000014", "gemini335l/000012", "d435i-merged/000019", "gemini335l/000006", "gemini335l/000008"];
 const label=id=>id.replace('d435i-merged/','D435i · ').replace('gemini335l/','Gemini 335L · ');
 let sceneId=new URLSearchParams(location.search).get('scene');
 if(!scenes.includes(sceneId))sceneId=scenes[0];
@@ -534,7 +534,7 @@ new ResizeObserver(entries=>{
  parent.postMessage({type:'depth-viewer-height',height},location.origin);
 }).observe(document.body);
 }else{
- const sceneIds=["d435i-merged/000005", "d435i-merged/000003", "gemini335l/000009", "gemini335l/000004", "gemini335l/000014", "d435i-merged/000002", "gemini335l/000012"];
+ const sceneIds=["d435i-merged/000005", "d435i-merged/000003", "gemini335l/000009", "gemini335l/000004", "gemini335l/000014", "gemini335l/000012", "d435i-merged/000019", "gemini335l/000006", "gemini335l/000008"];
  document.body.replaceChildren();
  const stack=document.createElement('main');
  document.body.append(stack);
