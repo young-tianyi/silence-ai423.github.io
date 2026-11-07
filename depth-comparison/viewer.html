@@ -1,0 +1,264 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DepthCore · 深度检查</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f7f6f2;color:#242424;font:14px system-ui,sans-serif}header{display:flex;justify-content:space-between;align-items:center;padding:24px 32px;background:white;border-bottom:1px solid #ddd8ce}header img{width:180px}h1{margin:0;font-size:24px}header p{margin:8px 0 0;color:#76716b}.controls{display:flex;gap:24px;flex-wrap:wrap;padding:20px 32px;align-items:center}input,select,button{accent-color:#da6649}button,select{padding:7px 12px;border:1px solid #d8d3c9;border-radius:6px;background:white}label{display:flex;align-items:center;gap:8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:0 32px 20px}.card{background:white;border:1px solid #dedbd5;border-radius:10px;overflow:hidden}.title{padding:12px 16px;display:flex;justify-content:space-between;gap:8px}.metric{font-size:12px;color:#706960}.view{aspect-ratio:16/9;background:#182430;overflow:hidden;cursor:grab;touch-action:none}canvas{width:100%;height:100%;display:block}.note{padding:0 32px 24px;color:#706960;line-height:1.8}#status{color:#da6649} @media(max-width:800px){.grid{grid-template-columns:1fr;padding:0 12px}.controls{padding:16px;gap:14px}header{padding:18px}header img{width:125px}}
+.settings{position:relative}.settings summary{cursor:pointer;color:#706960;list-style:none;padding:8px}.settings summary::after{content:' ▾'}.settings-body{position:absolute;z-index:5;top:38px;left:0;background:white;box-shadow:0 8px 30px #0002;border:1px solid #ddd8ce;border-radius:8px;padding:18px;width:280px;display:grid;gap:16px}.auto-hint{margin-left:auto;color:#8a837c;font-size:12px}.controls{gap:18px}.note{font-size:12px}#status:empty{display:none}
+.readout{margin:0 32px 18px;background:#fff;border:1px solid #e6e1d9;border-radius:12px;display:grid;grid-template-columns:.85fr 1fr 1.1fr repeat(7,1.2fr);box-shadow:0 2px 8px #36271904;overflow:hidden}
+.readout-cell{padding:15px 22px;border-right:1px solid #eeeae4;min-width:0}
+.readout-cell:last-child{border:0}
+.readout-cell.model{background:#fdfbf8}
+.readout-label{font-size:11px;letter-spacing:.07em;color:#8b8379;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.readout-dot{width:6px;height:6px;border-radius:50%;background:#da6649}
+.readout-value{font-size:23px;font-weight:550;letter-spacing:-.6px;font-variant-numeric:tabular-nums;line-height:1.2;color:#292720}
+.readout-unit{font-size:11px;color:#9a9288;font-weight:400;margin-left:5px;letter-spacing:0}
+.readout-bottom{min-height:21px;margin-top:7px;display:flex;gap:7px;align-items:center;font-size:11px;color:#9a9288}
+.error-pill{display:inline-block;border-radius:5px;padding:3px 7px;font-variant-numeric:tabular-nums;letter-spacing:0;background:#f1eee9;color:#756b5f}
+.error-pill.near{background:#eef3f7;color:#4a6d89}
+.error-pill.far{background:#fbefe8;color:#b16642}
+.readout-empty{grid-column:1/-1;padding:19px 22px;color:#8b8379;font-size:13px}
+.readout-empty span{margin-left:20px;font-size:11px;color:#aaa298}
+@media(max-width:800px){.readout{margin:0 12px 16px;grid-template-columns:1fr 1fr}.readout-cell{padding:13px 16px;border-bottom:1px solid #eeeae4}.readout-value{font-size:20px}}
+.title{align-items:center;min-height:76px;flex-wrap:wrap}.metric{display:flex;gap:24px;color:#292720}.stat{display:flex;flex-direction:column;gap:4px}.stat-label{font-size:11px;color:#82796e}.stat strong{font-size:19px;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:-.3px}.stat small{font-size:12px;font-weight:550;letter-spacing:0}.metric:empty{display:none}@media(max-width:650px){.metric{gap:18px}.stat strong{font-size:17px}.stat-label{font-size:10px}}.toggle-group{display:flex;align-items:center;gap:22px;flex-shrink:0;padding-right:22px;border-right:1px solid #ded8ce}.scene-nav{display:flex;gap:5px;align-items:center}.catalog-link{color:#a45b44;text-decoration:none;font-size:13px}.scene-nav select{font-weight:600}.scene-nav button:disabled{opacity:.3;cursor:default}.auto-hint{display:flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums}.color-strip{width:95px;height:8px;border-radius:4px;background:linear-gradient(90deg,#2d196e,#2d74b4,#25a884,#efd84a,#ea5c23)}.color-choice select{color:#ad5c40;border-color:#e4c9bc;background:#fffaf6}
+.color-control{margin-left:auto;min-width:245px;padding:8px 12px;border-left:1px solid #e3ddd4}
+.color-control-top{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:8px}
+.color-caption{font-size:11px;color:#93897c;letter-spacing:.05em}
+.color-segments{display:flex;gap:2px;padding:3px;background:#ede9e2;border-radius:8px}
+.color-segments button{border:0;background:transparent;color:#85796b;font-size:11px;padding:5px 10px;border-radius:5px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s}
+.color-segments button.selected{background:#fff;color:#b65b3e;box-shadow:0 1px 4px #33221112;font-weight:650}
+.color-segments button:focus-visible{outline:2px solid #da6649;outline-offset:2px}
+.color-scale{display:flex;align-items:center;gap:8px;font-size:10px;color:#8d8376;font-variant-numeric:tabular-nums}
+.color-scale .color-strip{flex:1;width:auto;min-width:80px;height:5px;opacity:.85}
+@media(max-width:800px){.color-control{margin-left:0;border-left:0;padding:8px 0;min-width:240px}}
+.pair{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:18px}.pair .card{min-width:0}.pair .title{flex-wrap:wrap}.pair .metric{flex-wrap:wrap}@media(max-width:800px){.pair{gap:6px}.pair .title{padding:6px;gap:4px}.pair .metric{gap:4px}.pair .stat strong{font-size:14px}}</style>
+<header><div><h1 id="heading">Gemini 335L · 000003</h1><p id="sceneSubtitle">开投影 / 1280 × 720 / 多图同步缩放与平移</p></div><img src="assets/logo.svg" alt="DepthCore"></header>
+<div class="controls"><a href="report.html" class="catalog-link">评测报告</a><a href="index.html" class="catalog-link">← 场景目录</a><div class="scene-nav"><button id="previous" aria-label="上一个场景">‹</button><select id="sceneSelect" aria-label="选择场景"></select><button id="next" aria-label="下一个场景">›</button></div><div class="toggle-group"><label><input id="illumination" type="checkbox" checked>投影打光</label></div>
+<label>边缘对比方法 <select id="pairMethod"><option value="nsl">NSL</option><option value="lingbot">LingBot-Depth</option><option value="da2">DA2</option><option value="raw">Raw Depth</option></select></label><label>边缘平滑 <select id="smoothEdges"><option value="0">关闭</option><option value="1">轻度</option><option value="4" selected>中度</option><option value="8">强</option></select></label>
+<label>空洞显示 <select id="depthDisplay"><option value="overlay">深度 + 左 IR</option><option value="depth" selected>仅深度</option></select></label>
+<label>缩放 <input id="zoom" type="range" min="1" max="24" step=".1" value="1"><output id="zoomValue">1×</output></label>
+<button id="reset">重置</button><span>双击任一图中的边缘，同步放大</span>
+
+
+<div class="color-control"><div class="color-control-top"><span class="color-caption">色阶参考</span><div class="color-segments" role="group" aria-label="色阶参考"><button type="button" class="selected" data-source="nsl" aria-pressed="true">NSL 全景</button><button type="button" data-source="gt" aria-pressed="false">标定 GT</button></div></div><div id="colorLegend" class="color-scale"><span>近</span><i class="color-strip"></i><span>远</span></div></div><select id="colorSource" hidden><option value="nsl">NSL 完整深度</option><option value="gt">标定 GT</option></select><span id="status">加载中…</span>
+</div>
+<div hidden><button id="focus"></button><button id="autoRange"></button><input id="autoScale" type="checkbox" checked><select id="range"><option value="full">全帧</option><option value="object">物体</option><option value="custom">自动</option></select><input id="near" value="511"><input id="far" value="633"></div>
+<div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid pair" id="nslPair" aria-label="所选方法边缘厚度对比"></div><div class="grid" id="grid"></div>
+<div class="note">青灰线标记所选方法有效深度与空洞的交界。拖动平移 · 指向边缘滚轮缩放，双击同步放大 · 悬停查看深度 · 点击锁定读数。各深度图共用所选来源在当前视野的 2%–98% 深度范围。NSL 模式包含完整预测，GT 模式使用标定真值掩码。紫色近、橙色远。LingBot-Depth v0.5 使用当前投影状态的左 IR 和传感器原始深度进行补全。上方并排面板对所选输入分别扩边 1 px、2 px。下方原始深度面板直接显示设备读数。每个场景只有一帧传感器原始深度，两种投影视图共用。“深度 + 左 IR”模式在无有效深度处淡显当前投影状态的左 IR 纹理；彩色区域显示有效深度。</div>
+<script>
+const W=1280,H=720,N=W*H,$=id=>document.getElementById(id);
+const keys=['thin','thick','ir','gt','nsl','lingbot','da2','raw'],names=['NSL · 1 px','NSL · 2 px','原始左 IR','标定 GT','NSL','LingBot-Depth','DA2（公制深度）','Raw Depth（传感器原始深度）'];
+const canvases={},sources={},data={},masks={};let scale=1,px=0,py=0,probe=null,locked=false;let rangeTimer=null,lastViewport='';
+keys.forEach((k,i)=>{const card=document.createElement('div');card.className='card';card.innerHTML='<div class="title"><b>'+names[i]+'</b><span class="metric" id="metric-'+k+'"></span></div><div class="view"><canvas width="1280" height="720"></canvas></div>';$(k==='thin'||k==='thick'?'nslPair':'grid').append(card);canvases[k]=card.querySelector('canvas');sources[k]=document.createElement('canvas');sources[k].width=W;sources[k].height=H;
+let last=null;const view=card.querySelector('.view');view.onpointerdown=e=>{last=[e.clientX,e.clientY];view.setPointerCapture(e.pointerId)};view.onpointerup=()=>last=null;view.onpointercancel=()=>last=null;view.onclick=()=>{locked=!locked;showProbe()};
+view.onpointermove=e=>{if(!last){if(!locked&&data.gt){const b=view.getBoundingClientRect();let x=Math.floor(((e.clientX-b.left)*W/b.width-W*(1-scale)/2-px)/scale),y=Math.floor(((e.clientY-b.top)*H/b.height-H*(1-scale)/2-py)/scale);probe=[Math.max(0,Math.min(W-1,x)),Math.max(0,Math.min(H-1,y))];showProbe();draw()}return;}px+=(e.clientX-last[0])*W/view.clientWidth;py+=(e.clientY-last[1])*H/view.clientHeight;last=[e.clientX,e.clientY];draw()};function zoomAt(e,target){
+ const rect=view.getBoundingClientRect(),x=(e.clientX-rect.left)*W/rect.width-W/2,y=(e.clientY-rect.top)*H/rect.height-H/2;
+ const next=Math.max(1,Math.min(24,target)),ratio=next/scale;
+ px=x-(x-px)*ratio;py=y-(y-py)*ratio;scale=next;$('zoom').value=next;draw();
+}
+view.onwheel=e=>{e.preventDefault();zoomAt(e,scale*(e.deltaY<0?1.12:1/1.12))};
+view.ondblclick=e=>{e.preventDefault();zoomAt(e,scale<8?8:Math.min(24,scale*2))};});
+function draw(){
+if(data.gt&&$('autoScale').checked){const signature=[scale,px,py].join(',');if(signature!==lastViewport){lastViewport=signature;clearTimeout(rangeTimer);rangeTimer=setTimeout(()=>{if($('autoScale').checked)$('autoRange').onclick()},140)}}
+if(scale===1){px=0;py=0}let maxX=W*(scale-1)/2,maxY=H*(scale-1)/2;px=Math.max(-maxX,Math.min(maxX,px));py=Math.max(-maxY,Math.min(maxY,py));$('zoomValue').value=scale.toFixed(1)+'×';keys.forEach(k=>{let c=canvases[k].getContext('2d');c.imageSmoothingEnabled=false;c.clearRect(0,0,W,H);c.drawImage(sources[k],W*(1-scale)/2+px,H*(1-scale)/2+py,W*scale,H*scale);if(probe){let x=W*(1-scale)/2+px+(probe[0]+.5)*scale,y=H*(1-scale)/2+py+(probe[1]+.5)*scale;c.strokeStyle='white';c.lineWidth=1;c.beginPath();c.moveTo(x-12,y);c.lineTo(x+12,y);c.moveTo(x,y-12);c.lineTo(x,y+12);c.stroke()}})}
+function edge(d,t,r){const b=new Uint8Array(N);for(let y=0;y<H;y++)for(let x=0;x<W;x++){let i=y*W+x;if(!(d[i]>0&&isFinite(d[i])))continue;for(let j of [x<W-1?i+1:-1,y<H-1?i+W:-1])if(j>=0&&d[j]>0&&isFinite(d[j])&&Math.abs(d[i]-d[j])>t){b[i]=1;b[j]=1}}if(!r)return b;const sum=new Int32Array((W+1)*(H+1)),out=new Uint8Array(N);for(let y=0;y<H;y++){let row=0;for(let x=0;x<W;x++){row+=b[y*W+x];sum[(y+1)*(W+1)+x+1]=sum[y*(W+1)+x+1]+row}}for(let y=0;y<H;y++)for(let x=0;x<W;x++){let a=Math.max(0,x-r),b=Math.min(W,x+r+1),c=Math.max(0,y-r),d=Math.min(H,y+r+1);out[y*W+x]=sum[d*(W+1)+b]-sum[c*(W+1)+b]-sum[d*(W+1)+a]+sum[c*(W+1)+a]>0}return out}
+const colors=[[45,25,110],[45,116,180],[37,168,132],[239,216,74],[234,92,35]];
+let irBackground;
+function render(){const object=$('range').value==='object',lo=$('range').value==='custom'?Number($('near').value):(object?511:450),hi=$('range').value==='custom'?Number($('far').value):(object?633:2600);if(!(hi>lo))return;
+const overlay=$('depthDisplay').value==='overlay' && irBackground;
+for(const k of ['gt','thin','thick','nsl','raw','lingbot','da2']){const d=data[k],mask=k==='gt'?null:masks[k],im=new ImageData(W,H),line=nslOutlines[k];let total=0,count=0,error=0;
+for(let i=0;i<N;i++){let valid=isFinite(d[i])&&d[i]>0,drop=mask&&mask[i];let rgb;if(valid&&!drop){let u=Math.max(0,Math.min(3.99999,(d[i]-lo)/(hi-lo)*4)),j=Math.floor(u),f=u-j;rgb=colors[j].map((v,a)=>v*(1-f)+colors[j+1][a]*f)}else if(line&&line[i]){rgb=edgeColor}else if(overlay){
+    const gray=irBackground[i];rgb=[gray,gray,gray];
+   }else{rgb=[24,36,48]}
+   im.data.set([...rgb,255],i*4);if(k!=='gt'&&data.gt[i]>0&&isFinite(data.gt[i])){total++;if(valid&&!drop){count++;error+=Math.abs(d[i]-data.gt[i])}}}sources[k].getContext('2d').putImageData(im,0,0);if(k!=='gt')$('metric-'+k).innerHTML='<span class="stat" title="在有 GT 且保留有效预测的像素上计算，越小越好"><span class="stat-label">平均绝对误差（MAE）</span><strong>'+(count?(error/count).toFixed(2):'—')+' <small>mm</small></strong></span><span class="stat" title="有效 GT 像素中，保留有效预测的比例"><span class="stat-label">有效深度覆盖率</span><strong>'+(total?(100*count/total).toFixed(2):'—')+'<small>%</small></strong></span>'}showProbe();draw()}
+const baseNslMasks={}, nslOutlines={};
+const edgeColor=[140,185,180];
+function outline(mask){
+ const valid=new Uint8Array(N),line=new Uint8Array(N);
+ for(let i=0;i<N;i++)valid[i]=!mask[i]&&Number.isFinite(data.thin[i])&&data.thin[i]>0;
+ for(let i=0;i<N;i++){
+  if(valid[i])continue;
+  const x=i%W;
+  line[i]=(x>0&&valid[i-1])||(x+1<W&&valid[i+1])||(i>=W&&valid[i-W])||(i+W<N&&valid[i+W]);
+ }
+ return line;
+}
+// Opening the valid region trims protrusions without assigning depth to holes.
+function openContour(valid,radius){
+ let src=valid.slice(),dst=new Uint8Array(N);
+ for(const erode of [true,false]){
+  for(let pass=0;pass<radius;pass++){
+   // Alternating cross and square footprints approximate an octagon.
+   const square=(erode?pass:radius-1-pass)%2===1;
+   for(let y=0;y<H;y++){
+    const top=Math.max(0,y-1)*W, row=y*W, bottom=Math.min(H-1,y+1)*W;
+    for(let x=0;x<W;x++){
+     const i=row+x;
+     if(src[i]!==Number(erode)){dst[i]=src[i];continue}
+     const l=Math.max(0,x-1),r=Math.min(W-1,x+1);
+     const sum=src[top+x]+src[bottom+x]+src[row+l]+src[row+r]+
+       (square?src[top+l]+src[top+r]+src[bottom+l]+src[bottom+r]:0);
+     dst[i]=erode?sum===(square?8:4):sum>0;
+    }
+   }
+   [src,dst]=[dst,src];
+  }
+ }
+ return src;
+}
+function smoothNslMask(base,strength){
+ const valid=new Uint8Array(N), result=base.slice();
+ for(let i=0;i<N;i++)valid[i]=!base[i] && Number.isFinite(data.thin[i]) && data.thin[i]>0;
+ for(let y=0;y<H;y++){
+  const above=Math.max(0,y-1)*W, row=y*W, below=Math.min(H-1,y+1)*W;
+  for(let x=0;x<W;x++){
+   if(!valid[row+x])continue;
+   const left=Math.max(0,x-1), right=Math.min(W-1,x+1);
+   const count=valid[above+left]+valid[above+x]+valid[above+right]
+              +valid[row+left]+valid[row+x]+valid[row+right]
+              +valid[below+left]+valid[below+x]+valid[below+right];
+   if(count<5)result[row+x]=1;
+  }
+ }
+ if(strength>1){
+  for(let i=0;i<N;i++)valid[i]=valid[i]&&!result[i];
+  const opened=openContour(valid,strength);
+  for(let i=0;i<N;i++)if(valid[i]&&!opened[i])result[i]=1;
+ }
+ return result;
+}
+function applyNslMasks(){
+ const strength=Number($('smoothEdges').value);
+ for(const key of ['thin','thick']){
+  masks[key]=strength?smoothNslMask(baseNslMasks[key],strength):baseNslMasks[key];
+  nslOutlines[key]=outline(masks[key]);
+ }
+ render();
+}
+function pairLabel(){return $('pairMethod').selectedOptions[0].textContent}
+function selectPair(){
+ const depth=data[$('pairMethod').value];
+ if(!depth)return;
+ data.thin=depth;data.thick=depth;
+ for(const [k,r] of [['thin',1],['thick',2]]){
+  baseNslMasks[k]=edge(depth,100,r);
+  $('metric-'+k).previousElementSibling.textContent=pairLabel()+' · '+r+' px';
+ }
+ applyNslMasks();
+}
+$('pairMethod').onchange=selectPair;
+function update(){
+ for(const key of ['nsl','lingbot','da2'])masks[key]=edge(data[key],100,2);
+ selectPair();
+}
+$('smoothEdges').onchange=()=>{if(data.nsl)applyNslMasks()};
+$('zoom').oninput=()=>{scale=Number($('zoom').value);draw()};$('reset').onclick=()=>{scale=1;px=py=0;$('zoom').value=1;draw()};
+
+function showProbe(){
+ if(!probe||!data.gt)return;
+ const i=probe[1]*W+probe[0],gt=data.gt[i];
+ const valid=v=>Number.isFinite(v)&&v>0;
+ const value=v=>valid(v)?v.toFixed(2)+'<span class="readout-unit">mm</span>':'<span style="font-size:15px;color:#aaa298">无有效深度</span>';
+ const cell=(label,body,foot,model=false)=>'<div class="readout-cell'+(model?' model':'')+'"><div class="readout-label">'+(model?'<i class="readout-dot"></i>':'')+label+'</div><div class="readout-value">'+body+'</div><div class="readout-bottom">'+foot+'</div></div>';
+ let html=cell('像素位置',probe[0]+'<span class="readout-unit">x</span> <span style="color:#ddd5ca">/</span> '+probe[1]+'<span class="readout-unit">y</span>',locked?'已锁定 · 点击解锁':'实时跟随 · 点击锁定');
+ html+=cell('标定 GT',value(gt),'参考深度');
+ html+=cell('传感器原始深度',value(data.raw[i]),'传感器读数 · 开关投影共用');
+ for(const k of ['thin','thick','nsl','lingbot','da2']){
+  const d=masks[k]?.[i]?NaN:data[k][i];
+  let foot='';
+  if(valid(gt)&&valid(d)){
+   const error=d-gt,kind=error<0?'near':'far',direction=Math.abs(error)<.005?'一致':error<0?'偏近':'偏远';
+   foot='<span class="error-pill '+kind+'">'+(error>0?'+':'')+error.toFixed(2)+' mm</span><span>'+direction+'</span>';
+  } else if(!foot)foot='缺少有效参考，无法计算误差';
+  html+=cell({thin:pairLabel()+' · 1 px',thick:pairLabel()+' · 2 px',nsl:'NSL',fs:'FoundationStereo',fast:'Fast-FoundationStereo',moge3:'MoGe-3',lingbot:'LingBot-Depth',da2:'DA2'}[k],value(d),foot,true);
+ }
+ $('probe').innerHTML=html;
+}
+$('focus').onclick=()=>{scale=4;px=(640-535)*scale;py=(360-380)*scale;$('zoom').value=scale;$('range').value='object';render()};
+$('autoRange').onclick=()=>{
+ const source=$('colorSource').value,depth=data[source];if(!depth)return;
+ const values=[];
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const sx=W*(1-scale)/2+px+x*scale,sy=H*(1-scale)/2+py+y*scale,v=depth[y*W+x];
+  if(sx>=0&&sx<W&&sy>=0&&sy<H&&v>0&&Number.isFinite(v)&&!masks[source]?.[y*W+x])values.push(v);
+ }
+ if(!values.length){$('status').textContent='当前视野没有有效'+(source==='gt'?' GT':' NSL 深度')+'，保留上一色阶';return}
+ values.sort((a,b)=>a-b);
+ const near=Math.floor(values[Math.floor(values.length*.02)]),far=Math.max(near+1,Math.ceil(values[Math.floor(values.length*.98)]));
+ $('near').value=near;$('far').value=far;$('range').value='custom';$('status').textContent='';
+ $('colorLegend').innerHTML='<span>'+near+' mm</span><i class="color-strip"></i><span>'+far+' mm</span>';
+ render();
+};
+document.querySelectorAll('[data-source]').forEach(button=>button.onclick=()=>{
+ $('colorSource').value=button.dataset.source;
+ document.querySelectorAll('[data-source]').forEach(item=>{const selected=item===button;item.classList.toggle('selected',selected);item.setAttribute('aria-pressed',String(selected))});
+ $('colorSource').onchange();
+});
+$('colorSource').onchange=()=>{lastViewport='';$('autoScale').checked=true;$('autoRange').onclick()};
+$('autoScale').onchange=()=>{lastViewport='';if($('autoScale').checked)$('autoRange').onclick()};
+for(let id of ['near','far'])$(id).onchange=()=>{$('autoScale').checked=false;$('range').value='custom';render()};
+
+function decodeDepth(buffer){
+ if(buffer.byteLength !== N*4) throw Error('深度尺寸不符');
+ const bytes=new Uint8Array(buffer), bits=new Uint32Array(N);
+ for(let y=0;y<H;y++){
+  let previous=0;
+  for(let x=0;x<W;x++){
+   const i=y*W+x;
+   previous ^= bytes[i] | (bytes[N+i]<<8) | (bytes[2*N+i]<<16) | (bytes[3*N+i]<<24);
+   bits[i]=previous;
+  }
+ }
+ return new Float32Array(bits.buffer);
+}
+const sceneCache={};let loadSequence=0;
+$('illumination').checked = new URLSearchParams(location.search).get('mode') !== 'off';
+function syncSceneUrl() {
+  const url = new URL(location.href);
+  url.searchParams.set('scene', sceneId);
+  url.searchParams.set('mode', $('illumination').checked ? 'on' : 'off');
+  history.replaceState(null, '', url);
+}
+const scenes=["d435i-merged/000005", "d435i-merged/000003", "gemini335l/000009", "gemini335l/000004"];
+const label=id=>id.replace('d435i-merged/','D435i · ').replace('gemini335l/','Gemini 335L · ');
+let sceneId=new URLSearchParams(location.search).get('scene');
+if(!scenes.includes(sceneId))sceneId=scenes[0];
+for(const id of scenes)$('sceneSelect').add(new Option(label(id),id));
+function selectScene(id){sceneId=id;$('sceneSelect').value=id;$('previous').disabled=id===scenes[0];$('next').disabled=id===scenes.at(-1);$('heading').textContent=label(id);syncSceneUrl();scale=1;px=py=0;probe=null;locked=false;$('zoom').value=1;$('probe').innerHTML='<div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div>';loadScene($('illumination').checked?'on':'off')}
+$('sceneSelect').onchange=()=>selectScene($('sceneSelect').value);
+$('previous').onclick=()=>selectScene(scenes[scenes.indexOf(sceneId)-1]);
+$('next').onclick=()=>selectScene(scenes[scenes.indexOf(sceneId)+1]);
+
+async function loadScene(mode){
+ const sequence=++loadSequence;const id=sceneId,key=id+'-'+mode;
+ $('status').textContent='正在切换…';
+ const suffix=mode==='off'?'-off':'';
+ try{
+  if(!sceneCache[key]){
+   const entries=await Promise.all(['gt','nsl','raw','lingbot','da2'].map(async k=>{
+    const file='pixels/'+id+'/'+(['raw','gt'].includes(k)?k:k+'-'+mode)+'.bin.gz';
+    const response=await fetch(file);
+    if(!response.ok)throw Error('载入失败');
+    const unpacked=response.body.pipeThrough(new DecompressionStream('gzip'));const buffer=await new Response(unpacked).arrayBuffer();
+    const values=k==='raw'?new Uint16Array(buffer):decodeDepth(buffer);
+    if(values.length!==N)throw Error('深度尺寸不符');
+    return [k,values];
+   }));
+   const image=new Image();image.src='pixels/'+id+'/ir-'+mode+'.png';await image.decode();
+   sceneCache[key]={depth:Object.fromEntries(entries),image};for(const old of Object.keys(sceneCache))if(old!==key&&Object.keys(sceneCache).length>3)delete sceneCache[old];
+  }
+  if(sequence!==loadSequence)return;
+  Object.assign(data,sceneCache[key].depth);
+  const irContext=sources.ir.getContext('2d');
+  irContext.drawImage(sceneCache[key].image,0,0,W,H);
+  const pixels=irContext.getImageData(0,0,W,H).data;
+  irBackground=new Uint8Array(N);
+  for(let i=0;i<N;i++)irBackground[i]=45+0.6*pixels[4*i];
+  lastViewport='';
+  $('sceneSubtitle').textContent=(mode==='on'?'开投影':'关投影')+' / 1280 × 720 / 多图同步缩放与平移';
+  $('status').textContent='';
+  update();
+ }catch(error){if(sequence===loadSequence)$('status').textContent=error.message}
+}
+$('depthDisplay').onchange=()=>{if(data.gt)render()};
+$('illumination').onchange=()=>{syncSceneUrl();loadScene($('illumination').checked?'on':'off')};
+$('range').onchange=()=>{$('autoScale').checked=false;if(data.gt)render()};
+selectScene(sceneId);
+</script></html>
