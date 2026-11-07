@@ -41,11 +41,11 @@
 </div>
 <div hidden><button id="focus"></button><button id="autoRange"></button><input id="autoScale" type="checkbox" checked><select id="range"><option value="full">全帧</option><option value="object">物体</option><option value="custom">自动</option></select><input id="near" value="511"><input id="far" value="633"></div>
 <div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid" id="grid"></div>
-<div class="note">四种方法的青灰细线标记有效深度与空洞的交界。NSL 使用 1 px 边缘过滤，Raw Depth 显示传感器读数，开关投影共用一帧。各深度图共享色阶。双击边缘可同步放大，点击可锁定像素读数。</div>
+
 <script>
 const W=1280,H=720,N=W*H,$=id=>document.getElementById(id);
 const methods=['nsl','lingbot','da2','raw'];
-const labels={ir:'原始左 IR',gt:'标定 GT',nsl:'NSL · 1 px',lingbot:'LingBot-Depth',da2:'DA2（公制深度）',raw:'Raw Depth（传感器原始深度）'};
+const labels={ir:'原始左 IR',gt:'标定 GT',nsl:'NSL',lingbot:'LingBot-Depth',da2:'DA2（公制深度）',raw:'Raw Depth（传感器原始深度）'};
 const keys=['ir','gt',...methods];
 const canvases={},sources={},data={},masks={};let scale=1,px=0,py=0,probe=null,locked=false;let rangeTimer=null,lastViewport='';
 keys.forEach(k=>{const card=document.createElement('div');card.className='card';card.innerHTML='<div class="title"><b>'+labels[k]+'</b><span class="metric" id="metric-'+k+'"></span></div><div class="view"><canvas width="1280" height="720"></canvas></div>';$('grid').append(card);canvases[k]=card.querySelector('canvas');sources[k]=document.createElement('canvas');sources[k].width=W;sources[k].height=H;
