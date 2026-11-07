@@ -31,7 +31,7 @@
 .pair{grid-template-columns:repeat(2,minmax(0,1fr));padding-bottom:18px}.pair .card{min-width:0}.pair .title{flex-wrap:wrap}.pair .metric{flex-wrap:wrap}@media(max-width:800px){.pair{gap:6px}.pair .title{padding:6px;gap:4px}.pair .metric{gap:4px}.pair .stat strong{font-size:14px}}</style>
 <header><div><h1 id="heading">Gemini 335L · 000003</h1><p id="sceneSubtitle">开投影 / 1280 × 720 / 多图同步缩放与平移</p></div><img src="assets/logo.svg" alt="DepthCore"></header>
 <div class="controls"><a href="report.html" class="catalog-link">评测报告</a><a href="index.html" class="catalog-link">← 场景目录</a><div class="scene-nav"><button id="previous" aria-label="上一个场景">‹</button><select id="sceneSelect" aria-label="选择场景"></select><button id="next" aria-label="下一个场景">›</button></div><div class="toggle-group"><label><input id="illumination" type="checkbox" checked>投影打光</label></div>
-<label>边缘对比方法 <select id="pairMethod"><option value="nsl">NSL</option><option value="lingbot">LingBot-Depth</option><option value="da2">DA2</option><option value="raw">Raw Depth</option></select></label><label>边缘平滑 <select id="smoothEdges"><option value="0">关闭</option><option value="1">轻度</option><option value="4" selected>中度</option><option value="8">强</option></select></label>
+<label>NSL 边缘平滑 <select id="smoothEdges"><option value="0">关闭</option><option value="1">轻度</option><option value="4" selected>中度</option><option value="8">强</option></select></label>
 <label>空洞显示 <select id="depthDisplay"><option value="overlay">深度 + 左 IR</option><option value="depth" selected>仅深度</option></select></label>
 <label>缩放 <input id="zoom" type="range" min="1" max="24" step=".1" value="1"><output id="zoomValue">1×</output></label>
 <button id="reset">重置</button><span>双击任一图中的边缘，同步放大</span>
@@ -40,13 +40,15 @@
 <div class="color-control"><div class="color-control-top"><span class="color-caption">色阶参考</span><div class="color-segments" role="group" aria-label="色阶参考"><button type="button" class="selected" data-source="nsl" aria-pressed="true">NSL 全景</button><button type="button" data-source="gt" aria-pressed="false">标定 GT</button></div></div><div id="colorLegend" class="color-scale"><span>近</span><i class="color-strip"></i><span>远</span></div></div><select id="colorSource" hidden><option value="nsl">NSL 完整深度</option><option value="gt">标定 GT</option></select><span id="status">加载中…</span>
 </div>
 <div hidden><button id="focus"></button><button id="autoRange"></button><input id="autoScale" type="checkbox" checked><select id="range"><option value="full">全帧</option><option value="object">物体</option><option value="custom">自动</option></select><input id="near" value="511"><input id="far" value="633"></div>
-<div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid pair" id="nslPair" aria-label="所选方法边缘厚度对比"></div><div class="grid" id="grid"></div>
-<div class="note">青灰线标记所选方法有效深度与空洞的交界。拖动平移 · 指向边缘滚轮缩放，双击同步放大 · 悬停查看深度 · 点击锁定读数。各深度图共用所选来源在当前视野的 2%–98% 深度范围。NSL 模式包含完整预测，GT 模式使用标定真值掩码。紫色近、橙色远。LingBot-Depth v0.5 使用当前投影状态的左 IR 和传感器原始深度进行补全。上方并排面板对所选输入分别扩边 1 px、2 px。下方原始深度面板直接显示设备读数。每个场景只有一帧传感器原始深度，两种投影视图共用。“深度 + 左 IR”模式在无有效深度处淡显当前投影状态的左 IR 纹理；彩色区域显示有效深度。</div>
+<div id="probe" class="readout" aria-label="像素深度读数"><div class="readout-empty">移动到图像上，查看像素深度与误差<span>点击可锁定位置</span></div></div><div class="grid" id="grid"></div>
+<div class="note">四种方法的青灰细线标记有效深度与空洞的交界。NSL 使用 1 px 边缘过滤，Raw Depth 显示传感器读数，开关投影共用一帧。各深度图共享色阶。双击边缘可同步放大，点击可锁定像素读数。</div>
 <script>
 const W=1280,H=720,N=W*H,$=id=>document.getElementById(id);
-const keys=['thin','thick','ir','gt','nsl','lingbot','da2','raw'],names=['NSL · 1 px','NSL · 2 px','原始左 IR','标定 GT','NSL','LingBot-Depth','DA2（公制深度）','Raw Depth（传感器原始深度）'];
+const methods=['nsl','lingbot','da2','raw'];
+const labels={ir:'原始左 IR',gt:'标定 GT',nsl:'NSL · 1 px',lingbot:'LingBot-Depth',da2:'DA2（公制深度）',raw:'Raw Depth（传感器原始深度）'};
+const keys=['ir','gt',...methods];
 const canvases={},sources={},data={},masks={};let scale=1,px=0,py=0,probe=null,locked=false;let rangeTimer=null,lastViewport='';
-keys.forEach((k,i)=>{const card=document.createElement('div');card.className='card';card.innerHTML='<div class="title"><b>'+names[i]+'</b><span class="metric" id="metric-'+k+'"></span></div><div class="view"><canvas width="1280" height="720"></canvas></div>';$(k==='thin'||k==='thick'?'nslPair':'grid').append(card);canvases[k]=card.querySelector('canvas');sources[k]=document.createElement('canvas');sources[k].width=W;sources[k].height=H;
+keys.forEach(k=>{const card=document.createElement('div');card.className='card';card.innerHTML='<div class="title"><b>'+labels[k]+'</b><span class="metric" id="metric-'+k+'"></span></div><div class="view"><canvas width="1280" height="720"></canvas></div>';$('grid').append(card);canvases[k]=card.querySelector('canvas');sources[k]=document.createElement('canvas');sources[k].width=W;sources[k].height=H;
 let last=null;const view=card.querySelector('.view');view.onpointerdown=e=>{last=[e.clientX,e.clientY];view.setPointerCapture(e.pointerId)};view.onpointerup=()=>last=null;view.onpointercancel=()=>last=null;view.onclick=()=>{locked=!locked;showProbe()};
 view.onpointermove=e=>{if(!last){if(!locked&&data.gt){const b=view.getBoundingClientRect();let x=Math.floor(((e.clientX-b.left)*W/b.width-W*(1-scale)/2-px)/scale),y=Math.floor(((e.clientY-b.top)*H/b.height-H*(1-scale)/2-py)/scale);probe=[Math.max(0,Math.min(W-1,x)),Math.max(0,Math.min(H-1,y))];showProbe();draw()}return;}px+=(e.clientX-last[0])*W/view.clientWidth;py+=(e.clientY-last[1])*H/view.clientHeight;last=[e.clientX,e.clientY];draw()};function zoomAt(e,target){
  const rect=view.getBoundingClientRect(),x=(e.clientX-rect.left)*W/rect.width-W/2,y=(e.clientY-rect.top)*H/rect.height-H/2;
@@ -63,16 +65,17 @@ const colors=[[45,25,110],[45,116,180],[37,168,132],[239,216,74],[234,92,35]];
 let irBackground;
 function render(){const object=$('range').value==='object',lo=$('range').value==='custom'?Number($('near').value):(object?511:450),hi=$('range').value==='custom'?Number($('far').value):(object?633:2600);if(!(hi>lo))return;
 const overlay=$('depthDisplay').value==='overlay' && irBackground;
-for(const k of ['gt','thin','thick','nsl','raw','lingbot','da2']){const d=data[k],mask=k==='gt'?null:masks[k],im=new ImageData(W,H),line=nslOutlines[k];let total=0,count=0,error=0;
+for(const k of ['gt',...methods]){const d=data[k],mask=k==='gt'?null:masks[k],im=new ImageData(W,H),line=outlines[k];let total=0,count=0,error=0;
 for(let i=0;i<N;i++){let valid=isFinite(d[i])&&d[i]>0,drop=mask&&mask[i];let rgb;if(valid&&!drop){let u=Math.max(0,Math.min(3.99999,(d[i]-lo)/(hi-lo)*4)),j=Math.floor(u),f=u-j;rgb=colors[j].map((v,a)=>v*(1-f)+colors[j+1][a]*f)}else if(line&&line[i]){rgb=edgeColor}else if(overlay){
     const gray=irBackground[i];rgb=[gray,gray,gray];
    }else{rgb=[24,36,48]}
    im.data.set([...rgb,255],i*4);if(k!=='gt'&&data.gt[i]>0&&isFinite(data.gt[i])){total++;if(valid&&!drop){count++;error+=Math.abs(d[i]-data.gt[i])}}}sources[k].getContext('2d').putImageData(im,0,0);if(k!=='gt')$('metric-'+k).innerHTML='<span class="stat" title="在有 GT 且保留有效预测的像素上计算，越小越好"><span class="stat-label">平均绝对误差（MAE）</span><strong>'+(count?(error/count).toFixed(2):'—')+' <small>mm</small></strong></span><span class="stat" title="有效 GT 像素中，保留有效预测的比例"><span class="stat-label">有效深度覆盖率</span><strong>'+(total?(100*count/total).toFixed(2):'—')+'<small>%</small></strong></span>'}showProbe();draw()}
-const baseNslMasks={}, nslOutlines={};
+let baseNslMask;
+const outlines={};
 const edgeColor=[140,185,180];
-function outline(mask){
+function outline(depth,mask){
  const valid=new Uint8Array(N),line=new Uint8Array(N);
- for(let i=0;i<N;i++)valid[i]=!mask[i]&&Number.isFinite(data.thin[i])&&data.thin[i]>0;
+ for(let i=0;i<N;i++)valid[i]=!mask?.[i]&&Number.isFinite(depth[i])&&depth[i]>0;
  for(let i=0;i<N;i++){
   if(valid[i])continue;
   const x=i%W;
@@ -105,7 +108,7 @@ function openContour(valid,radius){
 }
 function smoothNslMask(base,strength){
  const valid=new Uint8Array(N), result=base.slice();
- for(let i=0;i<N;i++)valid[i]=!base[i] && Number.isFinite(data.thin[i]) && data.thin[i]>0;
+ for(let i=0;i<N;i++)valid[i]=!base[i] && Number.isFinite(data.nsl[i]) && data.nsl[i]>0;
  for(let y=0;y<H;y++){
   const above=Math.max(0,y-1)*W, row=y*W, below=Math.min(H-1,y+1)*W;
   for(let x=0;x<W;x++){
@@ -124,31 +127,19 @@ function smoothNslMask(base,strength){
  }
  return result;
 }
-function applyNslMasks(){
+function applyNslSmoothing(){
  const strength=Number($('smoothEdges').value);
- for(const key of ['thin','thick']){
-  masks[key]=strength?smoothNslMask(baseNslMasks[key],strength):baseNslMasks[key];
-  nslOutlines[key]=outline(masks[key]);
- }
+ masks.nsl=strength?smoothNslMask(baseNslMask,strength):baseNslMask;
+ outlines.nsl=outline(data.nsl,masks.nsl);
  render();
 }
-function pairLabel(){return $('pairMethod').selectedOptions[0].textContent}
-function selectPair(){
- const depth=data[$('pairMethod').value];
- if(!depth)return;
- data.thin=depth;data.thick=depth;
- for(const [k,r] of [['thin',1],['thick',2]]){
-  baseNslMasks[k]=edge(depth,100,r);
-  $('metric-'+k).previousElementSibling.textContent=pairLabel()+' · '+r+' px';
- }
- applyNslMasks();
-}
-$('pairMethod').onchange=selectPair;
 function update(){
- for(const key of ['nsl','lingbot','da2'])masks[key]=edge(data[key],100,2);
- selectPair();
+ baseNslMask=edge(data.nsl,100,1);
+ for(const key of ['lingbot','da2'])masks[key]=edge(data[key],100,2);
+ for(const key of ['lingbot','da2','raw'])outlines[key]=outline(data[key],masks[key]);
+ applyNslSmoothing();
 }
-$('smoothEdges').onchange=()=>{if(data.nsl)applyNslMasks()};
+$('smoothEdges').onchange=()=>{if(data.nsl)applyNslSmoothing()};
 $('zoom').oninput=()=>{scale=Number($('zoom').value);draw()};$('reset').onclick=()=>{scale=1;px=py=0;$('zoom').value=1;draw()};
 
 function showProbe(){
@@ -159,15 +150,14 @@ function showProbe(){
  const cell=(label,body,foot,model=false)=>'<div class="readout-cell'+(model?' model':'')+'"><div class="readout-label">'+(model?'<i class="readout-dot"></i>':'')+label+'</div><div class="readout-value">'+body+'</div><div class="readout-bottom">'+foot+'</div></div>';
  let html=cell('像素位置',probe[0]+'<span class="readout-unit">x</span> <span style="color:#ddd5ca">/</span> '+probe[1]+'<span class="readout-unit">y</span>',locked?'已锁定 · 点击解锁':'实时跟随 · 点击锁定');
  html+=cell('标定 GT',value(gt),'参考深度');
- html+=cell('传感器原始深度',value(data.raw[i]),'传感器读数 · 开关投影共用');
- for(const k of ['thin','thick','nsl','lingbot','da2']){
+ for(const k of methods){
   const d=masks[k]?.[i]?NaN:data[k][i];
   let foot='';
   if(valid(gt)&&valid(d)){
    const error=d-gt,kind=error<0?'near':'far',direction=Math.abs(error)<.005?'一致':error<0?'偏近':'偏远';
    foot='<span class="error-pill '+kind+'">'+(error>0?'+':'')+error.toFixed(2)+' mm</span><span>'+direction+'</span>';
   } else if(!foot)foot='缺少有效参考，无法计算误差';
-  html+=cell({thin:pairLabel()+' · 1 px',thick:pairLabel()+' · 2 px',nsl:'NSL',fs:'FoundationStereo',fast:'Fast-FoundationStereo',moge3:'MoGe-3',lingbot:'LingBot-Depth',da2:'DA2'}[k],value(d),foot,true);
+  html+=cell(labels[k],value(d),foot,true);
  }
  $('probe').innerHTML=html;
 }
