@@ -4,7 +4,7 @@ window.PROFILE = {
   chineseName: '',
   school: 'Peking University (incoming, 2027)',
   email: '3662748738@bupt.edu.cn',
-  github: 'https://github.com/Silence-ai423',
+  github: 'https://github.com/young-tianyi',
   scholar: '',
   cv: '',
   portrait: 'portrait-selected.png',
@@ -15,3 +15,4 @@ window.PROFILE = {
 },
   interests: { en: '3D vision · Embodied intelligence', zh: '三维视觉 · 具身智能' }
 };
+
